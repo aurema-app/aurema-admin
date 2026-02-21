@@ -79,7 +79,7 @@ export default function PathsEditorPage() {
     setStatus(null);
 
     try {
-      const payload = await apiClient<unknown>(`/paths/${normalizedPathId}`);
+      const payload = await apiClient<unknown>(`/admin/paths/${normalizedPathId}`);
       const data = normalizePathResponse(payload);
 
       setForm({
@@ -93,7 +93,7 @@ export default function PathsEditorPage() {
         setForm(emptyForm(normalizedPathId));
         setError(`Path "${normalizedPathId}" was not found.`);
       } else {
-        setError('Failed to load path from backend API.');
+        setError('Failed to load path from admin API.');
       }
     } finally {
       setLoading(false);
@@ -104,6 +104,17 @@ export default function PathsEditorPage() {
     event.preventDefault();
     if (!form.id.trim()) {
       setError('Path ID is required before saving.');
+      return;
+    }
+
+    if (!form.name.trim()) {
+      setError('Path title is required.');
+      return;
+    }
+
+    const hasEmptyStepName = form.steps.some((step) => !step.name.trim());
+    if (hasEmptyStepName) {
+      setError('Every step must have a name before saving.');
       return;
     }
 
@@ -137,11 +148,9 @@ export default function PathsEditorPage() {
     } catch (err) {
       console.error('Failed to save path:', err);
       if (err instanceof ApiError && err.status === 404) {
-        setError(
-          'Save endpoint not found. Swagger currently exposes only GET /paths/:pathId, so backend write support is still needed.'
-        );
+        setError(`Path "${form.id.trim()}" was not found. This endpoint updates existing paths only.`);
       } else {
-        setError('Failed to save path via backend API.');
+        setError('Failed to save path via admin API.');
       }
     } finally {
       setSaving(false);
@@ -153,7 +162,7 @@ export default function PathsEditorPage() {
       <div>
         <h1 className="text-3xl font-bold">Paths Editor</h1>
         <p className="text-muted-foreground">
-          Edit path metadata and steps directly in Firestore.
+          Edit path metadata and steps through staff admin API endpoints.
         </p>
       </div>
 
@@ -161,7 +170,7 @@ export default function PathsEditorPage() {
         <CardHeader>
           <CardTitle>Select Path</CardTitle>
           <CardDescription>
-            Load any path from the backend API (`/paths/:id`).
+            Load any path from the admin API (`/admin/paths/:id`).
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 md:flex-row md:items-end">
