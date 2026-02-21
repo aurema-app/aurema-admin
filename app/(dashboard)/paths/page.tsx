@@ -251,7 +251,7 @@ export default function PathsEditorPage() {
               ) : null}
 
               {form.steps.map((step, index) => (
-                <div key={`${index}-${step.name}`} className="rounded-lg border p-4 space-y-3">
+                <div key={`step-${index}`} className="rounded-lg border p-4 space-y-3">
                   <div className="flex items-center justify-between gap-4">
                     <h3 className="font-medium">Step {index + 1}</h3>
                     <Button
