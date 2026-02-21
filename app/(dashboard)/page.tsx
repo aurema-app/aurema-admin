@@ -1,10 +1,16 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { type ChangeEvent, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { apiClient } from '@/lib/api';
+import {
+  apiClient,
+  getApiBaseUrl,
+  getApiEnvironment,
+  setApiEnvironment,
+  type ApiEnvironment,
+} from '@/lib/api';
 import { DashboardStats } from '@/types';
 import { StatsCards } from '@/components/dashboard/stats-cards';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,6 +20,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, userProfile, loading } = useAuth();
+  const [apiEnvironment, setApiEnvironmentState] = useState<ApiEnvironment>(
+    getApiEnvironment()
+  );
+  const [activeApiUrl, setActiveApiUrl] = useState<string>(
+    getApiBaseUrl(getApiEnvironment())
+  );
 
   // Redirect to login if not authenticated (only on root)
   useEffect(() => {
@@ -21,10 +33,25 @@ export default function DashboardPage() {
       router.replace('/login');
     }
   }, [user, loading, pathname, router]);
+
+  useEffect(() => {
+    const environment = getApiEnvironment();
+    setApiEnvironmentState(environment);
+    setActiveApiUrl(getApiBaseUrl(environment));
+  }, []);
+
   const { data: stats, isLoading, error } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', apiEnvironment],
     queryFn: () => apiClient<DashboardStats>('/admin/stats'),
   });
+
+  const handleApiEnvironmentChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextEnvironment = event.target.value as ApiEnvironment;
+
+    setApiEnvironment(nextEnvironment);
+    setApiEnvironmentState(nextEnvironment);
+    setActiveApiUrl(getApiBaseUrl(nextEnvironment));
+  };
 
   if (error) {
     return (
@@ -121,8 +148,19 @@ export default function DashboardPage() {
             <div>
               <p className="text-sm font-medium">Backend API</p>
               <p className="text-sm text-muted-foreground">
-                {process.env.NEXT_PUBLIC_API_URL}
+                {activeApiUrl}
               </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium">API Environment</p>
+              <select
+                value={apiEnvironment}
+                onChange={handleApiEnvironmentChange}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="prod">Production</option>
+                <option value="staging">Staging</option>
+              </select>
             </div>
             <div>
               <p className="text-sm font-medium">Firebase Project</p>
