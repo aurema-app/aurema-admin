@@ -8,6 +8,7 @@ import {
   Users,
   MessageSquare,
   Music,
+  Route,
 } from 'lucide-react';
 
 const navigation = [
@@ -15,6 +16,7 @@ const navigation = [
   { name: 'Users', href: '/users', icon: Users },
   { name: 'Conversations', href: '/conversations', icon: MessageSquare },
   { name: 'Meditations', href: '/meditations', icon: Music },
+  { name: 'Paths', href: '/paths', icon: Route },
 ];
 
 export function DashboardSidebar() {

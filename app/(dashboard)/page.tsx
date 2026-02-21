@@ -101,6 +101,15 @@ export default function DashboardPage() {
                 See all generated meditations
               </p>
             </a>
+            <a
+              href="/paths"
+              className="block p-3 rounded-lg border hover:bg-muted transition-colors"
+            >
+              <h3 className="font-medium">Edit Paths</h3>
+              <p className="text-sm text-muted-foreground">
+                Update path titles, descriptions, icons, and steps
+              </p>
+            </a>
           </CardContent>
         </Card>
 
