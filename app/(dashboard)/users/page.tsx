@@ -1,24 +1,42 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { PaginatedResponse, UserProfile } from '@/types';
 import { UsersTable } from '@/components/users/users-table';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Search } from 'lucide-react';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+
+const PAGE_SIZE = 25;
 
 export default function UsersPage() {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['users', search],
-    queryFn: () =>
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['users', debouncedSearch],
+    queryFn: ({ pageParam }) =>
       apiClient<PaginatedResponse<UserProfile>>(
-        `/admin/users?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}`
+        `/admin/users?limit=${PAGE_SIZE}${
+          pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''
+        }${debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''}`
       ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.hasMore ? last.nextCursor : undefined),
   });
+
+  const users = data?.pages.flatMap((p) => p.data) ?? [];
 
   return (
     <div className="space-y-6">
@@ -46,7 +64,16 @@ export default function UsersPage() {
           </CardContent>
         </Card>
       ) : (
-        <UsersTable users={data?.data || []} isLoading={isLoading} />
+        <>
+          <UsersTable users={users} isLoading={isLoading} />
+          <LoadMoreButton
+            hasNextPage={!!hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+            itemCount={users.length}
+            hideWhenEmpty={isLoading}
+          />
+        </>
       )}
     </div>
   );

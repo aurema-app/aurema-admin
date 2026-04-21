@@ -1,6 +1,7 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { UserWithCounts, PaginatedResponse, Conversation, Meditation } from '@/types';
@@ -10,10 +11,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConversationsTable } from '@/components/conversations/conversations-table';
 import { MeditationsTable } from '@/components/meditations/meditations-table';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
+
+const PAGE_SIZE = 25;
+
+type UserTab = 'conversations' | 'meditations' | 'raw';
 
 export default function UserDetailPage() {
   const params = useParams();
   const userId = params.userId as string;
+  const [tab, setTab] = useState<UserTab>('conversations');
 
   const { data: user, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ['user', userId],
@@ -21,23 +28,46 @@ export default function UserDetailPage() {
     enabled: !!userId,
   });
 
-  const { data: conversations, isLoading: conversationsLoading } = useQuery({
+  const {
+    data: conversationsData,
+    isLoading: conversationsLoading,
+    fetchNextPage: fetchMoreConversations,
+    hasNextPage: hasMoreConversations,
+    isFetchingNextPage: isFetchingMoreConversations,
+  } = useInfiniteQuery({
     queryKey: ['user-conversations', userId],
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       apiClient<PaginatedResponse<Conversation>>(
-        `/admin/users/${userId}/conversations?limit=50`
+        `/admin/users/${userId}/conversations?limit=${PAGE_SIZE}${
+          pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''
+        }`
       ),
-    enabled: !!userId,
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.hasMore ? last.nextCursor : undefined),
+    enabled: !!userId && tab === 'conversations',
   });
 
-  const { data: meditations, isLoading: meditationsLoading } = useQuery({
+  const {
+    data: meditationsData,
+    isLoading: meditationsLoading,
+    fetchNextPage: fetchMoreMeditations,
+    hasNextPage: hasMoreMeditations,
+    isFetchingNextPage: isFetchingMoreMeditations,
+  } = useInfiniteQuery({
     queryKey: ['user-meditations', userId],
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       apiClient<PaginatedResponse<Meditation>>(
-        `/admin/users/${userId}/meditations?limit=50`
+        `/admin/users/${userId}/meditations?limit=${PAGE_SIZE}${
+          pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''
+        }`
       ),
-    enabled: !!userId,
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.hasMore ? last.nextCursor : undefined),
+    enabled: !!userId && tab === 'meditations',
   });
+
+  const conversations = conversationsData?.pages.flatMap((p) => p.data) ?? [];
+  const meditations = meditationsData?.pages.flatMap((p) => p.data) ?? [];
 
   if (userError) {
     return (
@@ -71,7 +101,11 @@ export default function UserDetailPage() {
 
       <UserProfileCard user={user} />
 
-      <Tabs defaultValue="conversations" className="w-full">
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as UserTab)}
+        className="w-full"
+      >
         <TabsList>
           <TabsTrigger value="conversations">
             Conversations ({user.conversationsCount})
@@ -84,18 +118,32 @@ export default function UserDetailPage() {
 
         <TabsContent value="conversations" className="mt-6">
           <ConversationsTable
-            conversations={conversations?.data || []}
+            conversations={conversations}
             isLoading={conversationsLoading}
             showUser={false}
             userId={userId}
+          />
+          <LoadMoreButton
+            hasNextPage={!!hasMoreConversations}
+            isFetchingNextPage={isFetchingMoreConversations}
+            fetchNextPage={fetchMoreConversations}
+            itemCount={conversations.length}
+            hideWhenEmpty={conversationsLoading}
           />
         </TabsContent>
 
         <TabsContent value="meditations" className="mt-6">
           <MeditationsTable
-            meditations={meditations?.data || []}
+            meditations={meditations}
             isLoading={meditationsLoading}
             showUser={false}
+          />
+          <LoadMoreButton
+            hasNextPage={!!hasMoreMeditations}
+            isFetchingNextPage={isFetchingMoreMeditations}
+            fetchNextPage={fetchMoreMeditations}
+            itemCount={meditations.length}
+            hideWhenEmpty={meditationsLoading}
           />
         </TabsContent>
 
